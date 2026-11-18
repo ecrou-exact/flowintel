@@ -303,13 +303,36 @@ class Case(db.Model):
         else:
             # Callers without an acting user must not expose private linked cases.
             linked_cases = [case for case in linked_cases if not case.is_private]
-        json_dict["link_to"] = [
-            {"id": case.id, "title": case.title, "description": case.description}
-            for case in linked_cases
-        ]
+        json_dict["link_to"] = [case.to_link_json() for case in linked_cases]
 
         return json_dict
     
+    def to_link_json(self):
+        """Summary of a case shown in the "Linked cases" panel of another case."""
+        org = Org.query.get(self.owner_org_id) if self.owner_org_id else None
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "status_id": self.status_id,
+            "completed": self.completed,
+            "is_private": self.is_private,
+            "creation_date": self.creation_date.strftime('%Y-%m-%d %H:%M') if self.creation_date else None,
+            "last_modif": self.last_modif.strftime('%Y-%m-%d %H:%M') if self.last_modif else None,
+            "deadline": self.deadline.strftime('%Y-%m-%d %H:%M') if self.deadline else None,
+            "finish_date": self.finish_date.strftime('%Y-%m-%d %H:%M') if self.finish_date else None,
+            "owner_org": org.name if org else None,
+            "tasks_total": self.tasks.count(),
+            "tasks_closed": self.tasks.filter_by(completed=True).count(),
+            # people assigned to the case's tasks (shown with user-chip.js)
+            "users": [
+                {"id": u.id, "first_name": u.first_name, "last_name": u.last_name, "nickname": u.nickname}
+                for u in User.query.join(Task_User, Task_User.user_id == User.id)
+                    .join(Task, Task.id == Task_User.task_id)
+                    .where(Task.case_id == self.id).distinct().order_by(User.first_name).all()
+            ],
+        }
+
     def download(self):
         json_dict = {
             "uuid": self.uuid,

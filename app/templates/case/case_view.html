@@ -584,17 +584,8 @@
                                   @open-task="(t) => calendar_navigate({ tab: 'main', task: t.id, completed: t.completed })"></tags_edition>
 
                     <div class="case-tags-style mt-2" v-if="cases_info">
-                        <div class="justify-content-center" style="float: right">
-                            <button v-if="can_edit_case" class="btn btn-primary btn-sm" title="New link" data-bs-toggle="modal" data-bs-target="#add_new_link">
-                                <i class="fa-solid fa-paperclip fa-sm"></i>+
-                            </button>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <h6 class="section-title mb-0"><i class="fa-solid fa-link fa-sm me-2"></i>Linked cases</h6>
-                            <span class="badge text-bg-secondary ms-2">[[cases_info.case.link_to.length]]</span>
-                        </div>
-                        <hr class="fading-line-2 mt-2 mb-2">
-                        <case_links class="mt-2" :links="cases_info.case.link_to" :statuses="status_info ? status_info.status : []" :removable="can_edit_case"
+                        <case_links :links="cases_info.case.link_to" :statuses="status_info ? status_info.status : []"
+                                    :removable="can_edit_case" :can-link="can_edit_case"
                                     @remove="(l) => remove_case_link(cases_info, l)"></case_links>
                     </div>
                 </div>
@@ -2282,13 +2273,10 @@ async function autosave_case_note(){
                             body: JSON.stringify({"case_id": $(".new-link-ajax").val()})
                         })
                         if(await res.status == 200){
-                            let loc = $(".new-link-ajax").val()
-                            for(let index in loc){
-                                for(let i in case_for_link.value){
-                                    if(case_for_link.value[i].id == loc[index]){
-                                        cases_info.value.case.link_to.push({"id":case_for_link.value[i].id, "title": case_for_link.value[i].title})
-                                    }
-                                }
+                            // reload the links: the panel shows status, tasks, dates… of each linked case
+                            const info = await fetch("/case/{{case.id}}/get_case_info")
+                            if(info.status === 200){
+                                cases_info.value.case.link_to = (await info.json()).case.link_to
                             }
                             cases_info.value.case.last_modif = Date.now()
                             var myModalEl = document.getElementById('add_new_link');
